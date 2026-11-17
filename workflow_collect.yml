@@ -1,0 +1,62 @@
+name: 올림픽공원 도로·주차 수집
+
+on:
+  # 예약 실행 (시각은 UTC 기준, 한국시간 = UTC + 9시간)
+  # GitHub 예약 실행은 몇 분~수십 분 늦게 시작될 수 있어 공연 2시간 전쯤으로 잡았습니다.
+  schedule:
+    - cron: "50 8 20 11 *"   # 11/20(금) 17:50 KST 시작 · 공연 없는 금요일(비교용)
+    - cron: "50 6 21 11 *"   # 11/21(토) 15:50 KST 시작 · 로이킴 18:00
+    - cron: "50 5 22 11 *"   # 11/22(일) 14:50 KST 시작 · 로이킴 17:00
+    - cron: "50 8 26 11 *"   # 11/26(목) 17:50 KST 시작 · 공연 없는 평일(비교용)
+    - cron: "50 7 27 11 *"   # 11/27(금) 16:50 KST 시작 · 조용필 19:00
+    - cron: "50 6 28 11 *"   # 11/28(토) 15:50 KST 시작 · 조용필 18:00
+    - cron: "50 5 29 11 *"   # 11/29(일) 14:50 KST 시작 · 조용필 17:00
+  # Actions 탭에서 직접 실행(시험용)
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "수집 시간(분). 시험은 10, 실전은 최대 350"
+        default: "10"
+      label:
+        description: "폴더 이름표(영문 권장, 비우면 날짜로 자동)"
+        default: "test"
+
+permissions:
+  contents: write   # 수집한 CSV를 저장소에 커밋하기 위해 필요
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # GitHub 호스트 러너의 작업 최대 시간(6시간)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 수집 실행
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          TZ: Asia/Seoul
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 collect.py \
+            --minutes "${{ github.event.inputs.minutes || '350' }}" \
+            --label "${{ github.event.inputs.label || '' }}" \
+            --git
+
+  links:
+    # 도로 58개 구간을 서울시 '실시간 도로 소통 정보'로 한꺼번에 수집 (위 작업과 동시에 실행)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 58개 구간 수집
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          TZ: Asia/Seoul
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 collect_links.py \
+            --minutes "${{ github.event.inputs.minutes || '350' }}" \
+            --git
