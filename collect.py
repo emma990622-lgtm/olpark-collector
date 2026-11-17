@@ -4,6 +4,8 @@
 5분마다 아래 두 API를 불러 CSV로 쌓습니다. 파이썬 표준 라이브러리만 씁니다(설치할 패키지 없음).
   1) 서울시 실시간 도시데이터(올림픽공원): 주변 도로 58개 구간 속도, 지역 평균, 인구, 돌발정보
   2) 한국체육산업개발 실시간 주차현황: 올림픽공원 주차 합계(parking_sum)
+  3) 서울시 공영주차장 실시간 정보(GetParkingInfo): 송파구·강동구 공영주차장 빈자리
+     → 공원 안 주차장과 '조금 먼 주차장'을 비교하기 위한 자료
 
 사용 예)
   python collect.py --minutes 350              # 350분 동안 5분마다 수집
@@ -28,6 +30,8 @@ KST = dt.timezone(dt.timedelta(hours=9))
 PLACE = "올림픽공원"
 SEOUL_URL = "http://openapi.seoul.go.kr:8088/{key}/json/citydata/1/5/{place}"
 PARKING_URL = "https://www.ksponco.or.kr/online/main/parkingorsApi.do?apiKey=PARKING21803504"
+LOT_URL = "http://openapi.seoul.go.kr:8088/{key}/json/GetParkingInfo/{a}/{b}/{addr}"
+LOT_GUS = ["송파구", "강동구"]      # 올림픽공원이 걸쳐 있는 자치구
 INTERVAL_MIN = 5          # 도로소통 갱신 주기(5분)에 맞춤
 COMMIT_EVERY = 6          # --git 사용 시 6회(약 30분)마다 커밋
 
@@ -88,6 +92,54 @@ SUMMARY_HEADER = ["수집시각", "도로갱신시각", "지역평균속도_kmh"
                   "버스30분승차최소", "버스30분하차최소", "돌발건수",
                   "주차합계_parking_sum", "기온", "강수형태"]
 INCIDENT_HEADER = ["수집시각", "내용_json"]
+
+
+LOT_HEADER = ["수집시각", "주차장코드", "주차장명", "주소", "주차장종류", "실시간제공",
+              "총면수", "현재주차대수", "현재주차갱신시각", "평일운영시작", "평일운영종료",
+              "주말운영시작", "주말운영종료", "기본요금", "기본시간_분", "추가요금", "추가시간_분",
+              "위도", "경도", "원문_json"]
+_LOT_FILTER_OK = None   # 주소 조건 검색이 되는지(첫 호출에서 판단)
+
+
+def _lot_rows(d):
+    g = d.get("GetParkingInfo") or {}
+    res = g.get("RESULT") or d.get("RESULT") or {}
+    code = res.get("CODE") or res.get("RESULT.CODE")
+    return g.get("row") or [], int(g.get("list_total_count") or 0), code
+
+
+def fetch_lots(key):
+    """송파구·강동구 공영주차장 실시간 정보. 주소 조건 검색이 안 되면 전체를 받아 주소로 거른다."""
+    global _LOT_FILTER_OK
+    rows = []
+    if _LOT_FILTER_OK is not False:
+        for gu in LOT_GUS:
+            d = fetch_json(LOT_URL.format(key=key, a=1, b=1000, addr=urllib.parse.quote(gu)))
+            r, _, code = _lot_rows(d)
+            rows += [x for x in r if gu in str(x.get("ADDR", ""))]
+        if rows or _LOT_FILTER_OK:
+            _LOT_FILTER_OK = True
+            return rows
+        _LOT_FILTER_OK = False
+    a, total = 1, None
+    while total is None or a <= total:
+        d = fetch_json(LOT_URL.format(key=key, a=a, b=a + 999, addr="").rstrip("/"))
+        r, total, code = _lot_rows(d)
+        if not r:
+            break
+        rows += [x for x in r if any(gu in str(x.get("ADDR", "")) for gu in LOT_GUS)]
+        a += 1000
+    return rows
+
+
+def lot_csv_rows(rows, ts):
+    g = lambda x, k: x.get(k, "")
+    return [[ts, g(x, "PKLT_CD"), g(x, "PKLT_NM"), g(x, "ADDR"), g(x, "PKLT_TYPE"),
+             g(x, "PRK_STTS_YN"), g(x, "TPKCT"), g(x, "NOW_PRK_VHCL_CNT"),
+             g(x, "NOW_PRK_VHCL_UPDT_TM"), g(x, "WD_OPER_BGNG_TM"), g(x, "WD_OPER_END_TM"),
+             g(x, "WE_OPER_BGNG_TM"), g(x, "WE_OPER_END_TM"), g(x, "BSC_PRK_CRG"),
+             g(x, "BSC_PRK_HR"), g(x, "ADD_PRK_CRG"), g(x, "ADD_PRK_HR"), g(x, "LAT"),
+             g(x, "LOT"), json.dumps(x, ensure_ascii=False)] for x in rows]
 
 
 def parse_city(d, ts):
@@ -185,6 +237,15 @@ def main():
                 summary["주차합계_parking_sum"] = (p[0] if isinstance(p, list) and p else p).get("parking_sum")
             except Exception as e:
                 log_error(outdir, f"주차 실패: {e}")
+        # 3) 서울시 공영주차장 실시간(송파·강동) - 15분마다(5분 수집 3번에 1번)
+        if not a.test_file and n % 3 == 0:
+            try:
+                lots = fetch_lots(key)
+                append_csv(os.path.join(outdir, "parking_lots.csv"), LOT_HEADER, lot_csv_rows(lots, ts))
+                if not lots:
+                    log_error(outdir, "공영주차장: 송파·강동 주차장을 찾지 못함")
+            except Exception as e:
+                log_error(outdir, f"공영주차장 실패: {e}")
         append_csv(os.path.join(outdir, "summary.csv"), SUMMARY_HEADER,
                    [[ts] + [summary.get(h, "") for h in SUMMARY_HEADER[1:]]])
         n += 1
