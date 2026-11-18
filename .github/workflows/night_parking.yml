@@ -1,0 +1,23 @@
+name: 새벽 공원 주차 합계 기록
+
+on:
+  schedule:
+    - cron: "30 19 * * *"   # 매일 한국 04:30 (UTC 19:30)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  night:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 새벽 주차 합계 기록
+        env:
+          TZ: Asia/Seoul
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 night_parking.py --git
