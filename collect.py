@@ -90,7 +90,11 @@ SUMMARY_HEADER = ["수집시각", "도로갱신시각", "지역평균속도_kmh"
                   "정체구간수", "서행구간수", "원활구간수",
                   "인구갱신시각", "인구혼잡도", "인구최소", "인구최대",
                   "버스30분승차최소", "버스30분하차최소", "돌발건수",
-                  "주차합계_parking_sum", "기온", "강수형태"]
+                  "주차합계_parking_sum", "기온", "강수형태",
+                  # 11/20 추가: 올림픽공원 일대 실시간 인구의 연령·성별 비율(%) — 공연 관객 구성 추정 확인용(olpark-traffic scripts/15)
+                  "인구비율_0~9세", "인구비율_10대", "인구비율_20대", "인구비율_30대", "인구비율_40대",
+                  "인구비율_50대", "인구비율_60대", "인구비율_70대이상", "남성비율", "여성비율",
+                  "상주인구비율", "비상주인구비율"]
 INCIDENT_HEADER = ["수집시각", "내용_json"]
 
 
@@ -171,7 +175,12 @@ def parse_city(d, ts):
         "버스30분하차최소": bus.get("BUS_30WTHN_GTOFF_PPLTN_MIN"),
         "돌발건수": len(acc),
         "기온": w.get("TEMP"), "강수형태": w.get("PRECPT_TYPE"),
+        "남성비율": pp.get("MALE_PPLTN_RATE"), "여성비율": pp.get("FEMALE_PPLTN_RATE"),
+        "상주인구비율": pp.get("RESNT_PPLTN_RATE"), "비상주인구비율": pp.get("NON_RESNT_PPLTN_RATE"),
     }
+    for k, lab in [("0", "0~9세"), ("10", "10대"), ("20", "20대"), ("30", "30대"), ("40", "40대"),
+                   ("50", "50대"), ("60", "60대"), ("70", "70대이상")]:
+        summary["인구비율_" + lab] = pp.get("PPLTN_RATE_" + k)
     incident_rows = [[ts, json.dumps(a, ensure_ascii=False)] for a in acc]
     return road_rows, summary, incident_rows
 
