@@ -5,7 +5,7 @@ on:
   push:
     branches: [data/seoul-pop]
 permissions:
-  contents: read
+  contents: write
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -32,8 +32,15 @@ jobs:
             rm -f m.zip m.csv
           done
           wc -l $out; head -3 $out; gzip -k $out; ls -la
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: songpa_living_pop
-          path: songpa_living_pop.csv.gz
-          retention-days: 30
+          path: repo
+      - name: 이 갈래(data/seoul-pop)에 결과 커밋
+        run: |
+          mkdir -p repo/data/seoul_pop && mv songpa_living_pop.csv.gz repo/data/seoul_pop/
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/seoul_pop/songpa_living_pop.csv.gz
+          git commit -m "[자동] 송파구 생활인구 2024-07, 2025-01~12 (서울 열린데이터광장 OA-14991)" || true
+          git push
