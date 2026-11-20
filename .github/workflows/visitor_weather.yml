@@ -1,0 +1,27 @@
+name: 방문객·날씨 연계 자료 받기 (data/visitor-weather 갈래)
+# 공연·날씨·입출차 연계 방문객 혼잡도 예측용: 날씨(Open-Meteo), 지하철 승하차(서울 열린데이터광장), 생활인구 2026.
+# 이 갈래에 push할 때만 실행되고, 결과를 이 갈래의 data/visitor_weather/에 커밋한다. main은 건드리지 않는다.
+on:
+  push:
+    branches: [data/visitor-weather]
+    paths: [tools/fetch_visitor_weather.py, .github/workflows/visitor_weather.yml]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: 받기
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          TZ: Asia/Seoul
+        run: python3 tools/fetch_visitor_weather.py
+      - name: 결과 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/visitor_weather
+          git commit -m "[자동] 방문객·날씨 연계 자료 $(date +%Y-%m-%d)" || true
+          git push
