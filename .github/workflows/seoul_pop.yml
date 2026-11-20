@@ -8,10 +8,13 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: 데이터셋 페이지 살펴보기
+      - name: 다운로드 방식 확인
         run: |
           curl -sSL -A "Mozilla/5.0" "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" -o page.html
-          wc -c page.html
-          grep -n -i "download\|fileDown\|seq\|LOCAL_PEOPLE_DONG_2025" page.html | head -80
-          grep -o 'function [A-Za-z_]*[Dd]own[A-Za-z_]*([^)]*)[^}]*}' page.html | head -10
-          grep -o '<script[^>]*src="[^"]*"' page.html | head -20
+          sed -n '665,745p' page.html
+          curl -sS -L -A "Mozilla/5.0" -e "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" \
+            -X POST "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false" \
+            --data-urlencode "infId=OA-14991" --data-urlencode "infSeq=3" --data-urlencode "seq=2503" --data-urlencode "seqNo=" \
+            -D head.txt -o f.zip
+          cat head.txt; ls -la f.zip; file f.zip
+          unzip -l f.zip | head; unzip -p f.zip | head -c 1500 | iconv -f cp949 -t utf-8 || true
