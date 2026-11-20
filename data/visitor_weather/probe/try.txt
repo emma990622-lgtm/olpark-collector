@@ -1,0 +1,6 @@
+bigfile infSeq=1 seq=202301 -> 183 bytes <html><head><script language='javascript' type='text/javascr
+bigfile infSeq=1 seq=2301 -> 183 bytes <html><head><script language='javascript' type='text/javascr
+bigfile infSeq=1 seq=1 -> 183 bytes <html><head><script language='javascript' type='text/javascr
+bigfile infSeq=2 seq=202301 -> 183 bytes <html><head><script language='javascript' type='text/javascr
+bigfile infSeq=2 seq=2301 -> 183 bytes <html><head><script language='javascript' type='text/javascr
+bigfile infSeq=2 seq=1 -> 183 bytes <html><head><script language='javascript' type='text/javascr
