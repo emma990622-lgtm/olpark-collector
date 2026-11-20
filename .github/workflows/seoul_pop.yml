@@ -1,20 +1,39 @@
-name: 서울 생활인구(행정동) 받기 - 시험
+name: 서울 생활인구(행정동) 받기 - 송파구만 추리기
+# 서울 열린데이터광장 OA-14991 '행정동 단위 서울 생활인구(내국인)' 월별 파일(인증키 필요 없음)을 받아
+# 송파구(행정동코드 11710…) 줄만 남겨 결과물(artifact)로 올린다. 올림픽공원 분석(olpark-traffic scripts/15)에 쓴다.
 on:
   push:
     branches: [data/seoul-pop]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  probe:
+  fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - name: 다운로드 방식 확인
+      - name: 월별 파일 받고 송파구만 남기기
         run: |
-          curl -sSL -A "Mozilla/5.0" "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" -o page.html
-          sed -n '665,745p' page.html
-          curl -sS -L -A "Mozilla/5.0" -e "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" \
-            -X POST "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false" \
-            --data-urlencode "infId=OA-14991" --data-urlencode "infSeq=3" --data-urlencode "seq=2503" --data-urlencode "seqNo=" \
-            -D head.txt -o f.zip
-          cat head.txt; ls -la f.zip; file f.zip
-          unzip -l f.zip | head; unzip -p f.zip | head -c 1500 | iconv -f cp949 -t utf-8 || true
+          set -e
+          out=songpa_living_pop.csv
+          first=1
+          for ym in 2407 2501 2502 2503 2504 2505 2506 2507 2508 2509 2510 2511 2512; do
+            for try in 1 2 3; do
+              if curl -sS -L -A "Mozilla/5.0" -e "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" \
+                 -X POST "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false" \
+                 --data-urlencode "infId=OA-14991" --data-urlencode "infSeq=3" --data-urlencode "seq=$ym" --data-urlencode "seqNo=" \
+                 -o m.zip && unzip -tq m.zip >/dev/null; then break; fi
+              echo "재시도 $ym ($try)"; sleep 10
+            done
+            unzip -p m.zip > m.csv
+            if [ $first = 1 ]; then head -1 m.csv | sed 's/^\xEF\xBB\xBF//' > $out; first=0; head -1 $out; fi
+            # 행정동코드가 11710으로 시작하는 줄(따옴표 유무 모두)
+            grep -E '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710' m.csv >> $out || true
+            echo "$ym: $(wc -l < m.csv)줄 중 송파 $(grep -cE '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710' m.csv)줄"
+            rm -f m.zip m.csv
+          done
+          wc -l $out; head -3 $out; gzip -k $out; ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: songpa_living_pop
+          path: songpa_living_pop.csv.gz
+          retention-days: 30
