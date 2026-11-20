@@ -4,7 +4,7 @@ name: 방문객·날씨 연계 자료 받기 (data/visitor-weather 갈래)
 on:
   push:
     branches: [data/visitor-weather]
-    paths: [tools/fetch_visitor_weather.py, .github/workflows/visitor_weather.yml]
+    paths: [tools/fetch_visitor_weather.py, tools/probe_subway_files.sh]
 permissions:
   contents: write
 jobs:
@@ -17,7 +17,8 @@ jobs:
         env:
           SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
           TZ: Asia/Seoul
-        run: python3 tools/fetch_visitor_weather.py
+        run: |
+          if [ "${{ contains(github.event.head_commit.message, '[probe]') }}" = "true" ]; then bash tools/probe_subway_files.sh; else python3 tools/fetch_visitor_weather.py; fi
       - name: 결과 커밋
         run: |
           git config user.name "github-actions[bot]"
