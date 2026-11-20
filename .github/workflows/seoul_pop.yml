@@ -1,0 +1,17 @@
+name: 서울 생활인구(행정동) 받기 - 시험
+on:
+  push:
+    branches: [data/seoul-pop]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 데이터셋 페이지 살펴보기
+        run: |
+          curl -sSL -A "Mozilla/5.0" "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" -o page.html
+          wc -c page.html
+          grep -n -i "download\|fileDown\|seq\|LOCAL_PEOPLE_DONG_2025" page.html | head -80
+          grep -o 'function [A-Za-z_]*[Dd]own[A-Za-z_]*([^)]*)[^}]*}' page.html | head -10
+          grep -o '<script[^>]*src="[^"]*"' page.html | head -20
