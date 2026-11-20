@@ -4,6 +4,7 @@
   2) 지하철 일별 역별 승하차: 서울 열린데이터광장 CardSubwayStatsNew (SEOUL_API_KEY) — 올림픽공원 주변 역만
   3) 지하철 월별 시간대별 승하차: 서울 열린데이터광장 CardSubwayTime (SEOUL_API_KEY) — 같은 역
   4) 생활인구 2026년 월별 파일: OA-14991 (인증키 없음) — 올림픽공원 동(11710566)만
+  5) 지하철 일별 역별 승하차 월별 파일: OA-12914 (인증키 없음) — 일별 API에 없는 2026-02 이전까지 채움
 인증키는 환경변수로만 받고 출력하지 않는다. 결과: data/visitor_weather/*.csv
 """
 import csv
@@ -148,8 +149,48 @@ def living_pop_2026():
     log.append(f"생활인구 2026: {', '.join(got) or '없음'}; 아직 없음 {', '.join(miss)}")
 
 
+def subway_files():
+    """OA-12914 월별 파일(CARD_SUBWAY_MONTH_YYYYMM.csv, 인증키 없음)에서 주변 역만. 일별 API에 없는 2026-02 이전용."""
+    import re
+    page = get("https://data.seoul.go.kr/dataList/OA-12914/S/1/datasetView.do").decode("utf-8", errors="replace")
+    seqs = dict(re.findall(r'title="CARD_SUBWAY_MONTH_(\d{6})\.csv" onclick="javascript:downloadFile\(\'(\d+)\'\)', page))
+    want = [f"{y}{m:02d}" for y in (2024, 2025, 2026) for m in range(1, 13) if f"{y}{m:02d}" >= START.strftime("%Y%m")]
+    header, rows, got, miss = None, [], [], []
+    for ym in want:
+        if ym not in seqs:
+            miss.append(ym)
+            continue
+        data = urllib.parse.urlencode({"infId": "OA-12914", "infSeq": "3", "seq": seqs[ym], "seqNo": ""}).encode()
+        try:
+            b = get("https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false", data=data, tries=3, timeout=300)
+            if b[:2] == b"PK":
+                z = zipfile.ZipFile(io.BytesIO(b))
+                b = z.read(z.namelist()[0])
+            for enc in ("utf-8-sig", "cp949"):
+                try:
+                    txt = b.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+        except Exception:
+            miss.append(ym)
+            continue
+        lines = txt.splitlines()
+        if len(lines) < 10:
+            miss.append(ym)
+            continue
+        header = header or lines[0]
+        k = [ln for ln in lines[1:] if any(st in ln for st in STATIONS)]
+        rows += k
+        got.append(f"{ym}:{len(k)}")
+    if header:
+        with open(f"{OUT}/subway_daily_files_olpark.csv", "w", encoding="utf-8") as f:
+            f.write(header + "\n" + "\n".join(rows) + "\n")
+    log.append(f"지하철 월별 파일(일별 값): {len(got)}개월 {len(rows)}줄; 없음 {', '.join(miss) or '없음'}")
+
+
 if __name__ == "__main__":
-    for name, fn in (("weather", weather), ("subway_daily", subway_daily), ("subway_hourly_month", subway_hourly_month), ("living_pop_2026", living_pop_2026)):
+    for name, fn in (("weather", weather), ("subway_daily", subway_daily), ("subway_hourly_month", subway_hourly_month), ("living_pop_2026", living_pop_2026), ("subway_files", subway_files)):
         if name.startswith("subway") and not KEY:
             log.append(f"{name}: SEOUL_API_KEY 없음 → 건너뜀")
             continue
