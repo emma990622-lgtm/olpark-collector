@@ -1,6 +1,6 @@
-name: 서울 생활인구(행정동) 받기 - 송파구만 추리기
+name: 서울 생활인구(행정동) 받기 - 올림픽공원 동(11710566)만 추리기
 # 서울 열린데이터광장 OA-14991 '행정동 단위 서울 생활인구(내국인)' 월별 파일(인증키 필요 없음)을 받아
-# 송파구(행정동코드 11710…) 줄만 남겨 결과물(artifact)로 올린다. 올림픽공원 분석(olpark-traffic scripts/15)에 쓴다.
+# 올림픽공원이 있는 행정동(11710566, 오륜동) 줄만 남겨 이 갈래에 커밋한다. 올림픽공원 분석(olpark-traffic scripts/15)에 쓴다.
 on:
   push:
     branches: [data/seoul-pop]
@@ -14,9 +14,9 @@ jobs:
       - name: 월별 파일 받고 송파구만 남기기
         run: |
           set -e
-          out=songpa_living_pop.csv
+          out=oryun_living_pop.csv
           first=1
-          for ym in 2407 2501 2502 2503 2504 2505 2506 2507 2508 2509 2510 2511 2512; do
+          for ym in 2406 2407 2408 2409 2410 2411 2412 2501 2502 2503 2504 2505 2506 2507 2508 2509 2510 2511 2512; do
             for try in 1 2 3; do
               if curl -sS -L -A "Mozilla/5.0" -e "https://data.seoul.go.kr/dataList/OA-14991/S/1/datasetView.do" \
                  -X POST "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false" \
@@ -27,20 +27,20 @@ jobs:
             unzip -p m.zip > m.csv
             if [ $first = 1 ]; then head -1 m.csv | sed 's/^\xEF\xBB\xBF//' > $out; first=0; head -1 $out; fi
             # 행정동코드가 11710으로 시작하는 줄(따옴표 유무 모두)
-            grep -E '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710' m.csv >> $out || true
-            echo "$ym: $(wc -l < m.csv)줄 중 송파 $(grep -cE '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710' m.csv)줄"
+            grep -E '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710566"?,' m.csv >> $out || true
+            echo "$ym: $(wc -l < m.csv)줄 중 11710566 $(grep -cE '^"?[0-9]{8}"?,"?[0-9]{1,2}"?,"?11710566"?,' m.csv)줄"
             rm -f m.zip m.csv
           done
-          wc -l $out; head -3 $out; gzip -k $out; ls -la
+          wc -l $out; head -3 $out; ls -la
       - uses: actions/checkout@v4
         with:
           path: repo
       - name: 이 갈래(data/seoul-pop)에 결과 커밋
         run: |
-          mkdir -p repo/data/seoul_pop && mv songpa_living_pop.csv.gz repo/data/seoul_pop/
+          mkdir -p repo/data/seoul_pop && mv oryun_living_pop.csv repo/data/seoul_pop/ && git -C repo rm -q --ignore-unmatch data/seoul_pop/songpa_living_pop.csv.gz
           cd repo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/seoul_pop/songpa_living_pop.csv.gz
-          git commit -m "[자동] 송파구 생활인구 2024-07, 2025-01~12 (서울 열린데이터광장 OA-14991)" || true
+          git add -A data/seoul_pop
+          git commit -m "[자동] 올림픽공원 동(11710566) 생활인구 2024-06~2025-12 (서울 열린데이터광장 OA-14991)" || true
           git push
