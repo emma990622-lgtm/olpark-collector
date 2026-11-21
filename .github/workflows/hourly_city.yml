@@ -1,0 +1,28 @@
+name: 매시간 공원 일대 기록 (평소 기준)
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # 매시 17분쯤 (GitHub 사정으로 늦어질 수 있음)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hourly-city
+  cancel-in-progress: false
+
+jobs:
+  hourly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 한 줄 기록
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          TZ: Asia/Seoul
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 hourly_city.py --git
