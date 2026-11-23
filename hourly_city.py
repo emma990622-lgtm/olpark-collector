@@ -29,6 +29,13 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     t = now_kst()
     ts = f"{t:%Y-%m-%d %H:%M:%S}"
+    # 30분마다 깨어나되(GitHub가 정각 예약을 자주 건너뛰어서) 이 시간대에 이미 남긴 줄이 있으면 그냥 끝낸다
+    path = os.path.join(OUT, f"summary_{t:%Y-%m}.csv")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8-sig") as f:
+            if any(line.startswith(f"{t:%Y-%m-%d %H}:") for line in f):
+                print(f"{t:%m-%d %H}시는 이미 기록함 — 건너뜀")
+                return
     d = fetch_json(SEOUL_URL.format(key=key, place=urllib.parse.quote(PLACE)))
     _, summary, _ = parse_city(d, ts)
     summary["수집시각"] = ts

@@ -2,7 +2,7 @@ name: 매시간 공원 일대 기록 (평소 기준)
 
 on:
   schedule:
-    - cron: "17 * * * *"   # 매시 17분쯤 (GitHub 사정으로 늦어질 수 있음)
+    - cron: "17,47 * * * *"   # 30분마다 깨어남. 그 시간대에 이미 기록했으면 hourly_city.py가 건너뜀 (GitHub가 예약을 자주 건너뛰어서)
   workflow_dispatch:
 
 permissions:
