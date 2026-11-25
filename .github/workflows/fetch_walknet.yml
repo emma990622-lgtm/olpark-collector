@@ -1,0 +1,34 @@
+# 서울시 자치구별 도보 네트워크(OA-21208) 받기 — olpark-traffic의 scripts/34_get_walknet.py를 이 저장소의 서울시 키로 실행.
+# 필요할 때만 Actions 탭에서 "Run workflow". 결과: data/walknet/seoul_walknet_olpark.geojson
+name: 도보 네트워크 받기 (서울시 OA-21208)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: emma990622-lgtm/olpark-traffic
+          path: ot
+      - name: 받기
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          TZ: Asia/Seoul
+        run: python3 ot/scripts/34_get_walknet.py --out data/walknet/seoul_walknet_olpark.geojson
+      - name: 올리기
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/walknet/seoul_walknet_olpark.geojson
+          if git diff --cached --quiet; then echo "바뀐 것 없음"; exit 0; fi
+          git commit -m "도보 네트워크 받기 $(date '+%m-%d %H:%M')"
+          git pull --rebase
+          git push
